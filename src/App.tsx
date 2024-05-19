@@ -135,7 +135,7 @@ const App = () => {
       const context = huffmanCanvasRef.current.getContext('2d');
       drawTree(context!, tree, huffmanCanvasRef.current.width / 2, 50, 50, huffmanCanvasRef.current.width / 4);
     }
-  }, [huffmanCanvasRef])
+  }, [huffmanCanvasRef, withHuffmanCodes])
 
   useEffect(() => {
     if (shannonFanoCanvasRef.current) {
@@ -143,7 +143,7 @@ const App = () => {
       const context = shannonFanoCanvasRef.current.getContext('2d');
       drawTree(context!, tree, shannonFanoCanvasRef.current.width / 2, 50, 50, shannonFanoCanvasRef.current.width / 4);
     }
-  }, [shannonFanoCanvasRef])
+  }, [shannonFanoCanvasRef, withHuffmanCodes])
 
   return (
     <div className="App">
