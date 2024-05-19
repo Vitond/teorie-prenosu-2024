@@ -1,0 +1,41 @@
+.AlphabetInput input {
+  outline: none;
+  border: none;
+  display: block;
+  text-align: center;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+}
+
+.AlphabetInput__row div {
+  background: #eeeeee;
+  height: 30px;
+  width: 120px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.AlphabetInput__row_header {
+  font-size: 14px;
+}
+
+.AlphabetInput div:not(:last-child) {
+  margin-right: 10px;
+}
+
+.AlphabetInput__row {
+  display: flex;
+}
+
+.AlphabetInput__row:not(:last-child) {
+  margin-bottom: 5px;
+}
+
+.Center {
+  position: absolute;
+  top: 20rem;
+  left: 50%;
+  transform: translateX(-50%);
+}
