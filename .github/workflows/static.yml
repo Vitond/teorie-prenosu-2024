@@ -26,6 +26,7 @@ jobs:
   deploy:
     environment:
       name: github-pages
+      url: https://vitond.github.io/teorie-prenosu-2024
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
