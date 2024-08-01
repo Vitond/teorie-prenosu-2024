@@ -35,7 +35,7 @@
 
 .Center {
   position: absolute;
-  top: 20rem;
+  top: 10rem;
   left: 50%;
   transform: translateX(-50%);
 }

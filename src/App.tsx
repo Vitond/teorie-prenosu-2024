@@ -2,7 +2,24 @@ import './App.css';
 import { useCallback, useState, useRef, useEffect } from 'react';
 import { generateEvenParityCodes } from './parity';
 import { generateHuffmanCodes, generateShannonFanoCodes } from './generateCodes';
-import { drawTree, buildTree } from './binaryTree';
+import TreeCanvas, { drawTree, buildTree } from './binaryTree';
+import { DataGrid, GridColDef, GridToolbarContainer, GridRowsProp, GridRowModesModel, GridRowModes, GridSlots } from '@mui/x-data-grid';
+import Button from '@mui/material/Button';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/DeleteOutlined';
+import Modal from '@material-ui/core/Modal';
+import TextField from '@mui/material/TextField';
+import { Card } from '@mui/material';
+import ImportExportIcon from '@mui/icons-material/ImportExport';
+import TextareaAutosize from '@mui/material/TextareaAutosize';
+import ValueDisplay from './ValueDisplay';
+
+interface EditToolbarProps {
+  handleAddRowClick: () => void
+  handleRemoveRowsClick: () => void
+  handleImportClick: () => void
+  selectedRowsCount: number
+}
 
 export interface AlphabetSymbol {
   value: string;
@@ -14,6 +31,36 @@ export interface AlphabetSymbol {
   shannonFanoCode?: string;
   huffmanCode?: string;
 }
+
+function EditToolbar(props: EditToolbarProps) {
+  const { handleAddRowClick, handleRemoveRowsClick, handleImportClick } = props;
+
+  return (
+    <GridToolbarContainer>
+      <Button color="primary" startIcon={<AddIcon />} onClick={handleAddRowClick}>
+        Přidat znak
+      </Button>
+      <Button color="primary" startIcon={<ImportExportIcon />} onClick={handleImportClick}>
+        Importovat z textu
+      </Button>
+      {props.selectedRowsCount > 0 &&
+        <Button color="error" startIcon={<DeleteIcon />} onClick={handleRemoveRowsClick}>
+          Odstranit vybrané řádky
+        </Button>
+      }
+    </GridToolbarContainer>
+  );
+}
+
+const columns: GridColDef[] = [
+  { field: 'value', headerName: 'Znak', width: 70 },
+  { field: 'frequency', headerName: 'Četnost', width: 80, type: 'number', editable: true },
+  { field: 'probability', headerName: 'Pravděpodobnost (%)', width: 150, type: 'number' },
+  { field: 'bits', headerName: 'Množství informace', width: 160, type: 'number' },
+  { field: 'shannonFanoCode', headerName: 'Shannon-Fanův kód', width: 160, type: 'number' },
+  { field: 'huffmanCode', headerName: 'Huffmanův kód', width: 130, type: 'number' },
+  { field: 'huffmanCodeWithParity', headerName: 'Zabezpečený kód', width: 160, type: 'number' }
+];
 
 const defaultSymbols = [
   {
@@ -68,34 +115,64 @@ const defaultSymbols = [
   }
 ]
 
+let lastId = 9;
+
+
 const App = () => {
   const [symbols, setSymbols] = useState(defaultSymbols);
   const huffmanCanvasRef = useRef<HTMLCanvasElement>(null);
   const shannonFanoCanvasRef = useRef<HTMLCanvasElement>(null);
-
-  const onSymbolValueChanged = useCallback((id: number, value: string) => {
+  const [selectedRowIds, setSelectedRowIds] = useState<number[]>([]);
+  const [isAddingRow, setIsAddingRow] = useState(false);
+  const [addedCharacter, setAddedCharacter] = useState('');
+  const [addedCharacterFrequency, setAddedCharacterFrequency] = useState(10);
+  const [importingFromText, setIsImportingFromText] = useState(false);
+  const importedTextRef = useRef('');
+  const onRowUpdate = useCallback((row: AlphabetSymbol) => {
     setSymbols((symbols) => {
       const newSymbols = symbols.map((s, sid) => {
         return {
           ...s,
-          value: sid === id ? value : s.value
+          frequency: sid === row.id ? row.frequency : s.frequency
         }
       })
       return newSymbols;
     })
-  }, []);
+  }, [])
 
-  const onSymbolfrequencyChanged = useCallback((id: number, frequency: number) => {
+  const addNewCharacter = useCallback((value: string, frequency: number, id: number) => {
+    lastId = lastId + 1;
     setSymbols((symbols) => {
-      const newSymbols = symbols.map((s, sid) => {
-        return {
-          ...s,
-          frequency: sid === id ? frequency : s.frequency
-        }
-      })
-      return newSymbols;
+      return [...symbols, { value, frequency, id }]
     })
-  }, []);
+  }, [])
+
+  const removeSelectedRows = useCallback(() => {
+    setSymbols((symbols) => {
+      return symbols.filter(s => !selectedRowIds.includes(s.id))
+    })
+    setSelectedRowIds([]);
+  }, [selectedRowIds, setSelectedRowIds])
+
+  const importCharactersFromText = useCallback(() => {
+    let frequencies: { [key: string]: number } = {};
+    let addedCharacters = [];
+    if (importedTextRef.current.length < 1) {
+      return;
+    }
+    for (const c of importedTextRef.current) {
+      if (!frequencies[c]) {
+        addedCharacters.push(c);
+        frequencies[c] = 1;
+      } else {
+        frequencies[c]++;
+      }
+    }
+    setSymbols([]);
+    for (const c of addedCharacters) {
+      addNewCharacter(c, frequencies[c], lastId);
+    }
+  }, [importedTextRef, addNewCharacter])
 
   const sumFrequencies = symbols.reduce((acc, s) => {
     return acc + s.frequency;
@@ -131,76 +208,121 @@ const App = () => {
 
   useEffect(() => {
     if (huffmanCanvasRef.current) {
-      const tree = buildTree(withHuffmanCodes.map(s => ({...s, code: s.huffmanCode})));
+      const tree = buildTree(withHuffmanCodes.map(s => ({ ...s, code: s.huffmanCode })));
       const context = huffmanCanvasRef.current.getContext('2d');
+      context?.clearRect(0, 0, huffmanCanvasRef.current.width, huffmanCanvasRef.current.height)
       drawTree(context!, tree, huffmanCanvasRef.current.width / 2, 50, 50, huffmanCanvasRef.current.width / 4);
     }
-  }, [huffmanCanvasRef, withHuffmanCodes])
+  }, [huffmanCanvasRef, symbols])
 
   useEffect(() => {
     if (shannonFanoCanvasRef.current) {
-      const tree = buildTree(withHuffmanCodes.map(s => ({...s, code: s.shannonFanoCode})));
+      const tree = buildTree(withHuffmanCodes.map(s => ({ ...s, code: s.shannonFanoCode })));
       const context = shannonFanoCanvasRef.current.getContext('2d');
+      context?.clearRect(0, 0, shannonFanoCanvasRef.current.width, shannonFanoCanvasRef.current.height)
       drawTree(context!, tree, shannonFanoCanvasRef.current.width / 2, 50, 50, shannonFanoCanvasRef.current.width / 4);
     }
-  }, [shannonFanoCanvasRef, withHuffmanCodes])
+  }, [shannonFanoCanvasRef, symbols])
 
   return (
     <div className="App">
-      <div className="Center">
-        Pro náhodný výběr pravděpodobností přenačtěte stránku
-        <div className="AlphabetInput">
-          <div key={"header"} className="AlphabetInput__row AlphabetInput__row_header">
-            <div>
-              znak
+      <div className="Center" style={{paddingBottom: '200px'}}>
+        <Modal
+          open={isAddingRow}
+          onClose={() => setIsAddingRow(false)}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <Card
+            style={{ width: '300px', height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <TextField
+                label="Znak"
+                variant="filled"
+                style={{ marginBottom: '10px' }}
+                value={addedCharacter}
+                onChange={e => setAddedCharacter(e.target.value[0])}
+              ></TextField>
+              <TextField
+                type="number"
+                variant="filled"
+                label="Četnost"
+                onChange={e => setAddedCharacterFrequency(+e.target.value)}
+                value={addedCharacterFrequency}
+                style={{ marginBottom: '10px' }}
+              >
+              </TextField>
+              <Button
+                onClick={() => { addNewCharacter(addedCharacter, addedCharacterFrequency, lastId); setIsAddingRow(false) }}
+              >OK</Button>
             </div>
-            <div>
-              četnost
+          </Card>
+        </Modal>
+        <Modal
+          open={importingFromText}
+          onClose={() => setIsImportingFromText(false)}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <Card
+            style={{ width: '700px', height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <TextareaAutosize
+                style={{ marginBottom: '10px', width: '500px', maxHeight: '300px', height: '300px' }}
+                onChange={e => importedTextRef.current = e.target.value}
+              ></TextareaAutosize>
+              <Button
+                onClick={() => { importCharactersFromText(); setIsImportingFromText(false) }}
+              >OK</Button>
             </div>
-            <div>pravděpodobnost</div>
-            <div>množství informace</div>
-            <div>Shannon-Fanův kód</div>
-            <div>Huffmanův kód</div>
-            <div>Zabezpečený kód</div>
-          </div>
-          {
-            withParity.map((s) => {
-              return <div key={s.id} className="AlphabetInput__row">
-                <div>
-                  <input onChange={e => onSymbolValueChanged(s.id, e.target.value)} value={s.value}></input>
-                </div>
-                <div>
-                  <input onChange={e => onSymbolfrequencyChanged(s.id, +e.target.value)} type="number" value={Math.floor(s.frequency * 100) / 100}></input>
-                </div>
-                <div>{Math.floor(10000 * s.probability) / 100}%</div>
-                <div>{Math.floor(100 * s.bits) / 100}</div>
-                <div>{s.shannonFanoCode}</div>
-                <div>{s.huffmanCode}</div>
-                {/*@ts-ignore*/}
-                <div>{(s.huffmanCodeWithParity)}</div>
-              </div>
-            })
-          }
+          </Card>
+        </Modal>
+        <DataGrid
+          columns={columns}
+          rows={withParity.sort((a, b) => a.id - b.id).map(r => ({ ...r, probability: Math.floor(10000 * r.probability) / 100 }))}
+          checkboxSelection
+          onRowSelectionModelChange={(e) => setSelectedRowIds(e as number[])}
+          slots={{
+            toolbar: ((props) => <EditToolbar
+              selectedRowsCount={selectedRowIds.length}
+              handleAddRowClick={() => setIsAddingRow(true)}
+              handleRemoveRowsClick={() => removeSelectedRows()}
+              handleImportClick={() => { setIsImportingFromText(true) }}
+            />
+            ) as GridSlots['toolbar'],
+          }}
+          processRowUpdate={(v) => { onRowUpdate(v) }}
+        />
+        <div style={{ display: 'flex', marginTop: '20px', justifyContent: 'space-between', marginBottom: '20px' }}>
+          <ValueDisplay
+            label={"Průměrné množství informace 1 znaku zdrojové abecedy"}
+            value={Math.floor(100 * averageLetterBits) / 100}
+          />
+          <ValueDisplay
+            label={"Průměrná délka kódového slova Huffmanova kódu"}
+            value={Math.floor(100 * averageHuffmanCodeLengtth) / 100}
+          />
+          <ValueDisplay
+            label={"Efektivnost Huffmanova kódu"}
+            value={(Math.floor(10000 * (averageLetterBits / averageHuffmanCodeLengtth)) / 100) + '%'}
+          />
+          <ValueDisplay
+            label={"Průměrná délka kódového slova Shannon-Fanova kódu"}
+            value={(Math.floor(100 * averageShannonFanoCodeLength) / 100)}
+          />
+          <ValueDisplay
+            label={"Efektivnost Shannon-Fanova kódu"}
+            value={(Math.floor(10000 * (averageLetterBits / averageShannonFanoCodeLength)) / 100) + '%'}
+          />
         </div>
-        <div>
-          Průměrné množství informace 1 znaku zdrojové abecedy: {Math.floor(100 * averageLetterBits) / 100}
-        </div>
-        <div>
-          Průměrná délka kódového slova Huffmanova kódu: {Math.floor(100 * averageHuffmanCodeLengtth) / 100}
-        </div>
-        <div>
-          Efektivnost Huffmanova kódu: {Math.floor(10000 * (averageLetterBits / averageHuffmanCodeLengtth)) / 100}%
-        </div>
-        <div>
-          Průměrná délka kódového slova Shannon-Fanova kódu: {Math.floor(100 * averageShannonFanoCodeLength) / 100}
-        </div>
-        <div>
-          Efektivnost Shannon-Fanova kódu: {Math.floor(10000 * (averageLetterBits / averageShannonFanoCodeLength)) / 100}%
-        </div>
-        <b>Binární strom Shannon-Fanova kódu:</b>
-        <canvas width={"1000px"} height={"400px"}ref={shannonFanoCanvasRef}></canvas>
-        <b>Binární strom Huffmanova kódu:</b>
-        <canvas width={"1000px"} height={"400px"}ref={huffmanCanvasRef}></canvas>
+        <p><b>Binární strom Shannon-Fanova kódu:</b></p>
+        <TreeCanvas
+          inputData={withHuffmanCodes.map(s => ({ ...s, code: s.shannonFanoCode }))}
+        />
+        <p><b>Binární strom Huffmanova kódu:</b></p>
+        <TreeCanvas
+          inputData={withHuffmanCodes.map(s => ({ ...s, code: s.huffmanCode }))}
+        />
       </div>
     </div>
   );
