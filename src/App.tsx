@@ -1,9 +1,9 @@
 import './App.css';
-import { useCallback, useState, useRef, useEffect } from 'react';
+import { useCallback, useState, useRef } from 'react';
 import { generateEvenParityCodes } from './parity';
 import { generateHuffmanCodes, generateShannonFanoCodes } from './generateCodes';
-import TreeCanvas, { drawTree, buildTree } from './binaryTree';
-import { DataGrid, GridColDef, GridToolbarContainer, GridRowsProp, GridRowModesModel, GridRowModes, GridSlots } from '@mui/x-data-grid';
+import TreeCanvas from './binaryTree';
+import { DataGrid, GridColDef, GridToolbarContainer, GridSlots } from '@mui/x-data-grid';
 import Button from '@mui/material/Button';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
@@ -120,8 +120,6 @@ let lastId = 9;
 
 const App = () => {
   const [symbols, setSymbols] = useState(defaultSymbols);
-  const huffmanCanvasRef = useRef<HTMLCanvasElement>(null);
-  const shannonFanoCanvasRef = useRef<HTMLCanvasElement>(null);
   const [selectedRowIds, setSelectedRowIds] = useState<number[]>([]);
   const [isAddingRow, setIsAddingRow] = useState(false);
   const [addedCharacter, setAddedCharacter] = useState('');
@@ -205,24 +203,6 @@ const App = () => {
   }, 0);
 
   const withParity = generateEvenParityCodes(withHuffmanCodes);
-
-  useEffect(() => {
-    if (huffmanCanvasRef.current) {
-      const tree = buildTree(withHuffmanCodes.map(s => ({ ...s, code: s.huffmanCode })));
-      const context = huffmanCanvasRef.current.getContext('2d');
-      context?.clearRect(0, 0, huffmanCanvasRef.current.width, huffmanCanvasRef.current.height)
-      drawTree(context!, tree, huffmanCanvasRef.current.width / 2, 50, 50, huffmanCanvasRef.current.width / 4);
-    }
-  }, [huffmanCanvasRef, symbols])
-
-  useEffect(() => {
-    if (shannonFanoCanvasRef.current) {
-      const tree = buildTree(withHuffmanCodes.map(s => ({ ...s, code: s.shannonFanoCode })));
-      const context = shannonFanoCanvasRef.current.getContext('2d');
-      context?.clearRect(0, 0, shannonFanoCanvasRef.current.width, shannonFanoCanvasRef.current.height)
-      drawTree(context!, tree, shannonFanoCanvasRef.current.width / 2, 50, 50, shannonFanoCanvasRef.current.width / 4);
-    }
-  }, [shannonFanoCanvasRef, symbols])
 
   return (
     <div className="App">
