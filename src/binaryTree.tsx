@@ -1,5 +1,5 @@
 import { AlphabetSymbol } from "./App";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 
 interface TreeNode {
   letter?: string;
@@ -110,7 +110,7 @@ export const TreeCanvas: React.FC<{ inputData: (AlphabetSymbol & { code: any })[
     }
   }, [inputData, zoom, offsetX, offsetY]);
 
-  const handleWheel = (event: WheelEvent) => {
+  const handleWheel = useCallback((event: WheelEvent) => {
     event.preventDefault();
     const canvas = canvasRef.current;
     const rect = canvas!.getBoundingClientRect();
@@ -127,7 +127,7 @@ export const TreeCanvas: React.FC<{ inputData: (AlphabetSymbol & { code: any })[
     setOffsetX(newOffsetX);
     setOffsetY(newOffsetY);
     setZoom(newZoom);
-  };
+  }, [offsetX, offsetY, zoom]);
 
   const handleMouseDown = (event: React.MouseEvent) => {
     setIsDragging(true);
